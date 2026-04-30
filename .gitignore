@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build and packaging outputs
+build/
+dist/
+*.spec.bak
+
+# Local data and generated outputs
+test_data/
+src/matlab/
+paperflow/
+tests/
+test/
+*.md
+*.dat
+*.lfp
+*.nrs
+*.rhd
+*.states.mat
+*.LFP.mat
+*.session.mat
+*.offlineSleepEMG.mat
+*.offlineSleepEMG.compare.mat
+*.online_sleep_channel_profile.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
