@@ -2,6 +2,8 @@
 
 Python GUI for online sleep-state scoring from Intan-style recordings.
 
+![Online Sleep Score screenshot](docs/screenshot.png)
+
 ## Install on Windows
 
 1. Open the latest release:
