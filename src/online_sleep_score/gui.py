@@ -13,6 +13,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import numpy as np
 from PySide6.QtCore import QTimer
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -52,6 +53,9 @@ class SleepScoreApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Online Sleep Score")
+        icon_path = _resource_path("logo/logo.ico")
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
         self.resize(1220, 820)
         self.queue: queue.Queue = queue.Queue()
         self.worker: threading.Thread | None = None
@@ -476,6 +480,14 @@ class SleepScoreApp(QMainWindow):
 
 def main() -> None:
     app = QApplication.instance() or QApplication(sys.argv)
+    icon_path = _resource_path("logo/logo.ico")
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
     window = SleepScoreApp()
     window.show()
     app.exec()
+
+
+def _resource_path(relative_path: str) -> Path:
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2]))
+    return base / relative_path

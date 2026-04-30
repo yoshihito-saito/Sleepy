@@ -8,6 +8,7 @@ from PyInstaller.utils.hooks import collect_data_files
 
 datas = []
 datas += collect_data_files("matplotlib")
+datas.append(("logo/logo.ico", "logo"))
 
 hiddenimports = [
     "PySide6",
@@ -63,6 +64,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon="logo/logo.ico",
 )
 coll = COLLECT(
     exe,

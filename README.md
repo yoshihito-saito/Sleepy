@@ -2,18 +2,43 @@
 
 Python GUI for online sleep-state scoring from Intan-style recordings.
 
+## Easy Install on Windows
+
+1. Download the packaged `OnlineSleepScore` folder.
+2. Put the folder anywhere you like, for example:
+
+```text
+C:\Users\<your-name>\AppData\Local\OnlineSleepScore
+```
+
+3. Open the folder and double-click:
+
+```text
+OnlineSleepScore.exe
+```
+
+Keep the full `OnlineSleepScore` folder together. Do not move only the `.exe` file, because the app needs the `_internal` folder next to it.
+
+## For Developers
+
+Install the Python dependencies:
+
+```powershell
+pip install -r requirements.txt
+```
+
+Then run:
+
+```powershell
+python run_sleep_score_gui.py
+```
+
 ## Input
 
 Select a recording folder containing:
 
 - `amplifier.dat`
 - `amplifier.xml`
-
-## Run
-
-```powershell
-python run_sleep_score_gui.py
-```
 
 ## Workflow
 
@@ -51,4 +76,3 @@ dist\OnlineSleepScore\OnlineSleepScore.exe
 ```
 
 Distribute the full `dist\OnlineSleepScore` folder, not the `.exe` alone.
-
