@@ -267,6 +267,18 @@ class SleepScoreApp(QMainWindow):
             session = load_session(self.basepath_edit.text().strip())
             emg_threshold_value = float(self.emg_threshold.text())
             delta_theta_threshold_value = float(self.delta_theta_threshold.text())
+            estimation_sec = float(self.estimation_minutes.value()) * 60.0
+            required_samples = int(round(estimation_sec * session.sample_rate))
+            while session.total_samples < required_samples and not self.stop_event.is_set():
+                available_sec = session.total_samples / session.sample_rate
+                self.queue.put((
+                    "status",
+                    f"Waiting for estimation window: {available_sec:.0f}/{estimation_sec:.0f} sec",
+                ))
+                time.sleep(1.0)
+            if self.stop_event.is_set():
+                self.queue.put(("status", "Scoring stopped before estimation."))
+                return
             self.queue.put(("status", "Estimating current-session channels from initial window..."))
             profile = estimate_channel_profile(
                 session,
@@ -392,7 +404,7 @@ class SleepScoreApp(QMainWindow):
         self.confirmed_state.setText(result.confirmed_state[-1])
 
     def _render_duration_panels(self, result: ScoringResult, t: np.ndarray) -> None:
-        colors = {"Wake": "#4c72b0", "NREM": "#2f6f73", "REM": "#c44e52"}
+        colors = {"Wake": "#4c72b0", "NREM": "#c44e52", "REM": "#d9a51d"}
         labels = ["Wake", "NREM", "REM"]
         states = np.array(result.confirmed_state)
         plot_idx = self._plot_indices(len(t), max_points=2000)
