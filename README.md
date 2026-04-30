@@ -33,6 +33,8 @@ Select a recording folder containing:
 4. Adjust thresholds if needed.
 5. Press `Run scoring`.
 
+If previous parameters are estimated, the app uses the previous-session EMG, SW, and theta channels and skips the current-session `Estimation min` step.
+
 If previous parameters are not estimated, the app estimates channels from the first `Estimation min` minutes of the current recording.
 
 ## Output

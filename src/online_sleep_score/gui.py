@@ -271,28 +271,33 @@ class SleepScoreApp(QMainWindow):
             session = load_session(self.basepath_edit.text().strip())
             emg_threshold_value = float(self.emg_threshold.text())
             delta_theta_threshold_value = float(self.delta_theta_threshold.text())
-            estimation_sec = float(self.estimation_minutes.value()) * 60.0
-            required_samples = int(round(estimation_sec * session.sample_rate))
-            while session.total_samples < required_samples and not self.stop_event.is_set():
-                available_sec = session.total_samples / session.sample_rate
-                self.queue.put((
-                    "status",
-                    f"Waiting for estimation window: {available_sec:.0f}/{estimation_sec:.0f} sec",
-                ))
-                time.sleep(1.0)
-            if self.stop_event.is_set():
-                self.queue.put(("status", "Scoring stopped before estimation."))
-                return
-            self.queue.put(("status", "Estimating current-session channels from initial window..."))
-            profile = estimate_channel_profile(
-                session,
-                calibration_minutes=float(self.estimation_minutes.value()),
-                epoch_sec=float(self.epoch_sec.value()),
-            )
+            profile = self.estimated_profile
+            if profile is not None:
+                self._validate_profile_for_session(profile, session)
+                self.queue.put(("status", "Using parameters estimated from previous session."))
+            else:
+                estimation_sec = float(self.estimation_minutes.value()) * 60.0
+                required_samples = int(round(estimation_sec * session.sample_rate))
+                while session.total_samples < required_samples and not self.stop_event.is_set():
+                    available_sec = session.total_samples / session.sample_rate
+                    self.queue.put((
+                        "status",
+                        f"Waiting for estimation window: {available_sec:.0f}/{estimation_sec:.0f} sec",
+                    ))
+                    time.sleep(1.0)
+                if self.stop_event.is_set():
+                    self.queue.put(("status", "Scoring stopped before estimation."))
+                    return
+                self.queue.put(("status", "Estimating current-session channels from initial window..."))
+                profile = estimate_channel_profile(
+                    session,
+                    calibration_minutes=float(self.estimation_minutes.value()),
+                    epoch_sec=float(self.epoch_sec.value()),
+                )
             out_profile = default_profile_path(session)
             profile.save(out_profile)
             score_start_sample = 0
-            self.queue.put(("status", f"Saved current-session parameters: {out_profile}"))
+            self.queue.put(("status", f"Saved scoring parameters: {out_profile}"))
 
             params = ScoringParams(
                 epoch_sec=float(self.epoch_sec.value()),
@@ -353,6 +358,23 @@ class SleepScoreApp(QMainWindow):
             out = save_states_mat(result, session.basepath)
             self.queue.put(("result", result, out))
         self.queue.put(("status", "Online scoring stopped."))
+
+    def _validate_profile_for_session(self, profile, session) -> None:
+        if int(profile.n_channels) != int(session.n_channels):
+            raise ValueError(
+                "Previous-session parameters cannot be used because n_channels differs: "
+                f"profile={profile.n_channels}, current={session.n_channels}"
+            )
+        used_channels = list(profile.emg_from_lfp_channels) + [
+            int(profile.nrem_sw_channel),
+            int(profile.rem_theta_channel),
+        ]
+        bad = [ch for ch in used_channels if int(ch) < 0 or int(ch) >= session.n_channels]
+        if bad:
+            raise ValueError(
+                "Previous-session parameters contain channels outside the current recording: "
+                + ", ".join(map(str, sorted(set(bad))))
+            )
 
     def _poll_queue(self) -> None:
         try:
