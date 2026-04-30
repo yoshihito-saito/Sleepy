@@ -18,6 +18,7 @@ paperflow/
 tests/
 test/
 *.md
+!README.md
 *.dat
 *.lfp
 *.nrs
