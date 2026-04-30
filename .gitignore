@@ -9,6 +9,7 @@ __pycache__/
 # Build and packaging outputs
 build/
 dist/
+OnlineSleepScore-Windows.zip
 *.spec.bak
 
 # Local data and generated outputs
