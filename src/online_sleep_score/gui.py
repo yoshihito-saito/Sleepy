@@ -2,21 +2,40 @@ from __future__ import annotations
 
 from pathlib import Path
 import queue
-import time
+import sys
 import threading
-import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+import time
 
 import matplotlib
 
-matplotlib.use("TkAgg")
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+matplotlib.use("QtAgg")
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import numpy as np
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QDoubleSpinBox,
+    QFileDialog,
+    QFrame,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QSizePolicy,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .intan import load_session
 from .matlab_save import save_states_mat
-from .profile import default_profile_path, estimate_channel_profile, estimate_channel_profile_from_blocks, find_profile, load_profile
+from .profile import default_profile_path, estimate_channel_profile, estimate_channel_profile_from_blocks, load_profile
 from .scoring import (
     OnlineThresholdState,
     ScoringAccumulator,
@@ -29,74 +48,87 @@ from .scoring import (
 )
 
 
-class SleepScoreApp(tk.Tk):
+class SleepScoreApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.title("Online Sleep Score")
-        self.geometry("1220x820")
+        self.setWindowTitle("Online Sleep Score")
+        self.resize(1220, 820)
         self.queue: queue.Queue = queue.Queue()
         self.worker: threading.Thread | None = None
         self.stop_event = threading.Event()
         self.result: ScoringResult | None = None
         self.estimated_profile = None
-        self._build_vars()
         self._build_ui()
-        self.after(200, self._poll_queue)
-
-    def _build_vars(self) -> None:
-        self.basepath = tk.StringVar()
-        self.previous_path = tk.StringVar()
-        self.estimation_minutes = tk.DoubleVar(value=1.0)
-        self.epoch_sec = tk.DoubleVar(value=4.0)
-        self.confirmation_count = tk.IntVar(value=3)
-        self.emg_threshold = tk.StringVar(value="0.3")
-        self.delta_theta_threshold = tk.StringVar(value="0")
-        self.wake_to_rem_block = tk.BooleanVar(value=True)
-        self.status = tk.StringVar(value="Select an Intan basepath.")
-        self.confirmed_state = tk.StringVar(value="-")
-        self.emg_threshold_label = tk.StringVar(value="threshold: -")
-        self.delta_theta_threshold_label = tk.StringVar(value="log10 D/T threshold: -")
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._poll_queue)
+        self.timer.start(200)
 
     def _build_ui(self) -> None:
-        root = ttk.Frame(self, padding=8)
-        root.pack(fill=tk.BOTH, expand=True)
-        controls = ttk.Frame(root)
-        controls.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 8))
-        plots = ttk.Frame(root)
-        plots.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        central = QWidget()
+        self.setCentralWidget(central)
+        root = QHBoxLayout(central)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(8)
 
-        self._path_row(controls, "Basepath", self.basepath, self._browse_basepath)
-        self._path_row(controls, "Previous datapath", self.previous_path, self._browse_previous_path)
+        controls = QWidget()
+        controls.setFixedWidth(345)
+        controls_layout = QVBoxLayout(controls)
+        controls_layout.setContentsMargins(0, 0, 0, 0)
+        controls_layout.setSpacing(8)
+        root.addWidget(controls)
 
-        estimate_frame = ttk.Frame(controls)
-        estimate_frame.pack(fill=tk.X, pady=(8, 2))
-        ttk.Button(
-            estimate_frame,
-            text="Estimate parameters from previous session",
-            command=self._start_previous_parameter_estimation,
-        ).pack(fill=tk.X)
+        plots = QWidget()
+        plots_layout = QVBoxLayout(plots)
+        plots_layout.setContentsMargins(0, 0, 0, 0)
+        root.addWidget(plots, 1)
 
-        params = ttk.LabelFrame(controls, text="Parameters", padding=8)
-        params.pack(fill=tk.X, pady=8)
-        self._spin(params, "Estimation min", self.estimation_minutes, 0.25, 30, 0.25)
-        self._spin(params, "Epoch sec", self.epoch_sec, 1, 30, 1)
-        self._spin(params, "Confirm count", self.confirmation_count, 1, 10, 1)
-        self._spin(params, "EMG threshold", self.emg_threshold, -10, 10, 0.01)
-        self._spin(params, "log10 D/T threshold", self.delta_theta_threshold, -10, 10, 0.1)
-        ttk.Checkbutton(params, text="Block Wake -> REM", variable=self.wake_to_rem_block).pack(anchor="w")
+        self.basepath_edit = self._path_row(controls_layout, "Basepath", self._browse_basepath)
+        self.previous_path_edit = self._path_row(controls_layout, "Previous datapath", self._browse_previous_path)
 
-        actions = ttk.Frame(controls)
-        actions.pack(fill=tk.X, pady=8)
-        ttk.Button(actions, text="Run scoring", command=self._start_scoring).pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(actions, text="Stop scoring", command=self._stop_online).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(6, 0))
+        estimate_button = QPushButton("Estimate parameters from previous session")
+        estimate_button.clicked.connect(self._start_previous_parameter_estimation)
+        controls_layout.addWidget(estimate_button)
 
-        state_box = ttk.LabelFrame(controls, text="Current Output", padding=8)
-        state_box.pack(fill=tk.X, pady=8)
-        self._label_value(state_box, "Confirmed", self.confirmed_state)
-        self._label_value(state_box, "EMG", self.emg_threshold_label)
-        self._label_value(state_box, "Delta/Theta", self.delta_theta_threshold_label)
+        params = QGroupBox("Parameters")
+        params_layout = QGridLayout(params)
+        params_layout.setContentsMargins(8, 8, 8, 8)
+        params_layout.setHorizontalSpacing(8)
+        params_layout.setVerticalSpacing(6)
+        controls_layout.addWidget(params)
 
-        ttk.Label(controls, textvariable=self.status, wraplength=340).pack(fill=tk.X, pady=8)
+        self.estimation_minutes = self._double_spin(params_layout, 0, "Estimation min", 1.0, 0.25, 30, 0.25)
+        self.epoch_sec = self._double_spin(params_layout, 1, "Epoch sec", 4.0, 1, 30, 1)
+        self.confirmation_count = self._int_spin(params_layout, 2, "Confirm count", 3, 1, 10)
+        self.emg_threshold = self._line_value(params_layout, 3, "EMG threshold", "0.3")
+        self.delta_theta_threshold = self._line_value(params_layout, 4, "log10 D/T threshold", "0")
+        self.wake_to_rem_block = QCheckBox("Block Wake -> REM")
+        self.wake_to_rem_block.setChecked(True)
+        params_layout.addWidget(self.wake_to_rem_block, 5, 0, 1, 2)
+
+        actions = QHBoxLayout()
+        run_button = QPushButton("Run scoring")
+        run_button.clicked.connect(self._start_scoring)
+        stop_button = QPushButton("Stop scoring")
+        stop_button.clicked.connect(self._stop_online)
+        actions.addWidget(run_button)
+        actions.addWidget(stop_button)
+        controls_layout.addLayout(actions)
+
+        state_box = QGroupBox("Current Output")
+        state_layout = QGridLayout(state_box)
+        state_layout.setContentsMargins(8, 8, 8, 8)
+        controls_layout.addWidget(state_box)
+        self.confirmed_state = QLabel("-")
+        self.emg_threshold_label = QLabel("threshold: -")
+        self.delta_theta_threshold_label = QLabel("log10 D/T threshold: -")
+        self._label_value(state_layout, 0, "Confirmed", self.confirmed_state)
+        self._label_value(state_layout, 1, "EMG", self.emg_threshold_label)
+        self._label_value(state_layout, 2, "Delta/Theta", self.delta_theta_threshold_label)
+
+        self.status = QLabel("Select an Intan basepath.")
+        self.status.setWordWrap(True)
+        controls_layout.addWidget(self.status)
+        controls_layout.addStretch(1)
 
         fig = Figure(figsize=(8, 6), dpi=100)
         gs = fig.add_gridspec(4, 3, height_ratios=[1.0, 1.0, 1.0, 0.95])
@@ -111,66 +143,89 @@ class SleepScoreApp(tk.Tk):
         self.axes[2].set_ylabel("Hypnogram")
         self.duration_axes[1].set_xlabel("Time (min)")
         fig.tight_layout()
-        self.canvas = FigureCanvasTkAgg(fig, master=plots)
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.canvas = FigureCanvas(fig)
+        self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        plots_layout.addWidget(self.canvas)
 
-    def _path_row(self, parent, label, var, command) -> None:
-        frame = ttk.Frame(parent)
-        frame.pack(fill=tk.X, pady=2)
-        ttk.Label(frame, text=label).pack(anchor="w")
-        inner = ttk.Frame(frame)
-        inner.pack(fill=tk.X)
-        ttk.Entry(inner, textvariable=var, width=40).pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(inner, text="Browse", command=command).pack(side=tk.LEFT, padx=(4, 0))
+    def _path_row(self, parent: QVBoxLayout, label: str, command) -> QLineEdit:
+        frame = QFrame()
+        layout = QVBoxLayout(frame)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
+        layout.addWidget(QLabel(label))
+        row = QHBoxLayout()
+        edit = QLineEdit()
+        button = QPushButton("Browse")
+        button.clicked.connect(command)
+        row.addWidget(edit, 1)
+        row.addWidget(button)
+        layout.addLayout(row)
+        parent.addWidget(frame)
+        return edit
 
-    def _spin(self, parent, label, var, start, stop, inc) -> None:
-        frame = ttk.Frame(parent)
-        frame.pack(fill=tk.X, pady=2)
-        ttk.Label(frame, text=label, width=18).pack(side=tk.LEFT)
-        ttk.Spinbox(frame, textvariable=var, from_=start, to=stop, increment=inc, width=10).pack(side=tk.RIGHT)
+    def _double_spin(self, parent: QGridLayout, row: int, label: str, value: float, start: float, stop: float, inc: float) -> QDoubleSpinBox:
+        spin = QDoubleSpinBox()
+        spin.setRange(start, stop)
+        spin.setSingleStep(inc)
+        spin.setValue(value)
+        spin.setDecimals(2)
+        parent.addWidget(QLabel(label), row, 0)
+        parent.addWidget(spin, row, 1)
+        return spin
 
-    def _label_value(self, parent, label, var) -> None:
-        frame = ttk.Frame(parent)
-        frame.pack(fill=tk.X, pady=2)
-        ttk.Label(frame, text=label, width=12).pack(side=tk.LEFT)
-        ttk.Label(frame, textvariable=var).pack(side=tk.LEFT, fill=tk.X, expand=True)
+    def _int_spin(self, parent: QGridLayout, row: int, label: str, value: int, start: int, stop: int) -> QSpinBox:
+        spin = QSpinBox()
+        spin.setRange(start, stop)
+        spin.setValue(value)
+        parent.addWidget(QLabel(label), row, 0)
+        parent.addWidget(spin, row, 1)
+        return spin
+
+    def _line_value(self, parent: QGridLayout, row: int, label: str, value: str) -> QLineEdit:
+        edit = QLineEdit(value)
+        parent.addWidget(QLabel(label), row, 0)
+        parent.addWidget(edit, row, 1)
+        return edit
+
+    def _label_value(self, parent: QGridLayout, row: int, label: str, value: QLabel) -> None:
+        parent.addWidget(QLabel(label), row, 0)
+        parent.addWidget(value, row, 1)
 
     def _browse_basepath(self) -> None:
-        path = filedialog.askdirectory()
+        path = QFileDialog.getExistingDirectory(self, "Choose Intan basepath")
         if path:
-            self.basepath.set(path)
+            self.basepath_edit.setText(path)
 
     def _browse_previous_path(self) -> None:
-        path = filedialog.askdirectory()
+        path = QFileDialog.getExistingDirectory(self, "Choose previous datapath")
         if path:
-            self.previous_path.set(path)
+            self.previous_path_edit.setText(path)
 
     def _start_scoring(self) -> None:
         if self.worker and self.worker.is_alive():
-            messagebox.showinfo("Scoring", "Scoring is already running.")
+            QMessageBox.information(self, "Scoring", "Scoring is already running.")
             return
-        basepath = self.basepath.get().strip()
+        basepath = self.basepath_edit.text().strip()
         if not basepath:
-            messagebox.showerror("Missing basepath", "Choose a folder containing amplifier.dat and amplifier.xml.")
+            QMessageBox.critical(self, "Missing basepath", "Choose a folder containing amplifier.dat and amplifier.xml.")
             return
-        if not self.emg_threshold.get().strip() or not self.delta_theta_threshold.get().strip():
-            messagebox.showerror("Missing thresholds", "Estimate parameters or enter EMG and log10 D/T thresholds before scoring.")
+        if not self.emg_threshold.text().strip() or not self.delta_theta_threshold.text().strip():
+            QMessageBox.critical(self, "Missing thresholds", "Estimate parameters or enter EMG and log10 D/T thresholds before scoring.")
             return
-        self.status.set("Starting...")
+        self.status.setText("Starting...")
         self.stop_event.clear()
         self.worker = threading.Thread(target=self._run_scoring_worker, daemon=True)
         self.worker.start()
 
     def _start_previous_parameter_estimation(self) -> None:
         if self.worker and self.worker.is_alive():
-            messagebox.showinfo("Scoring", "A job is already running.")
+            QMessageBox.information(self, "Scoring", "A job is already running.")
             return
-        target_path = self.previous_path.get().strip()
+        target_path = self.previous_path_edit.text().strip()
         if not target_path:
-            messagebox.showerror("Missing previous datapath", "Choose a previous session folder first.")
+            QMessageBox.critical(self, "Missing previous datapath", "Choose a previous session folder first.")
             return
-        self.status.set("Estimating parameters...")
+        self.status.setText("Estimating parameters...")
         self.stop_event.clear()
         self.worker = threading.Thread(
             target=self._estimate_parameters_worker,
@@ -182,14 +237,14 @@ class SleepScoreApp(tk.Tk):
     def _estimate_parameters_worker(self, target_path: str) -> None:
         try:
             session = load_session(target_path)
-            use_full_session_blocks = bool(self.previous_path.get().strip()) and Path(target_path).resolve() == Path(self.previous_path.get().strip()).resolve()
+            use_full_session_blocks = bool(self.previous_path_edit.text().strip()) and Path(target_path).resolve() == Path(self.previous_path_edit.text().strip()).resolve()
             if use_full_session_blocks:
-                profile = estimate_channel_profile_from_blocks(session, epoch_sec=float(self.epoch_sec.get()))
+                profile = estimate_channel_profile_from_blocks(session, epoch_sec=float(self.epoch_sec.value()))
             else:
                 profile = estimate_channel_profile(
                     session,
-                    calibration_minutes=float(self.estimation_minutes.get()),
-                    epoch_sec=float(self.epoch_sec.get()),
+                    calibration_minutes=float(self.estimation_minutes.value()),
+                    epoch_sec=float(self.epoch_sec.value()),
                 )
             out_profile = default_profile_path(session)
             profile.save(out_profile)
@@ -201,22 +256,22 @@ class SleepScoreApp(tk.Tk):
 
     def _stop_online(self) -> None:
         self.stop_event.set()
-        self.status.set("Stopping online scoring...")
+        self.status.setText("Stopping online scoring...")
 
-    def _on_close(self) -> None:
+    def closeEvent(self, event) -> None:
         self.stop_event.set()
-        self.destroy()
+        event.accept()
 
     def _run_scoring_worker(self) -> None:
         try:
-            session = load_session(self.basepath.get().strip())
-            emg_threshold_value = float(self.emg_threshold.get())
-            delta_theta_threshold_value = float(self.delta_theta_threshold.get())
+            session = load_session(self.basepath_edit.text().strip())
+            emg_threshold_value = float(self.emg_threshold.text())
+            delta_theta_threshold_value = float(self.delta_theta_threshold.text())
             self.queue.put(("status", "Estimating current-session channels from initial window..."))
             profile = estimate_channel_profile(
                 session,
-                calibration_minutes=float(self.estimation_minutes.get()),
-                epoch_sec=float(self.epoch_sec.get()),
+                calibration_minutes=float(self.estimation_minutes.value()),
+                epoch_sec=float(self.epoch_sec.value()),
             )
             out_profile = default_profile_path(session)
             profile.save(out_profile)
@@ -224,13 +279,13 @@ class SleepScoreApp(tk.Tk):
             self.queue.put(("status", f"Saved current-session parameters: {out_profile}"))
 
             params = ScoringParams(
-                epoch_sec=float(self.epoch_sec.get()),
-                confirmation_count=int(self.confirmation_count.get()),
+                epoch_sec=float(self.epoch_sec.value()),
+                confirmation_count=int(self.confirmation_count.value()),
                 emg_threshold_mode="manual",
                 emg_threshold=emg_threshold_value,
                 delta_theta_threshold_mode="manual",
                 delta_theta_threshold=delta_theta_threshold_value,
-                wake_to_rem_block=bool(self.wake_to_rem_block.get()),
+                wake_to_rem_block=bool(self.wake_to_rem_block.isChecked()),
                 online=True,
             )
             self._run_online_loop(session, profile, params, score_start_sample)
@@ -288,25 +343,24 @@ class SleepScoreApp(tk.Tk):
             while True:
                 item = self.queue.get_nowait()
                 if item[0] == "status":
-                    self.status.set(item[1])
+                    self.status.setText(item[1])
                 elif item[0] == "error":
-                    self.status.set("Error")
-                    messagebox.showerror("Scoring failed", item[1])
+                    self.status.setText("Error")
+                    QMessageBox.critical(self, "Scoring failed", item[1])
                 elif item[0] == "result":
                     _, result, out = item
                     self.result = result
                     self._render_result(result)
                     if out is not None:
-                        self.status.set(f"Saved {out}")
+                        self.status.setText(f"Saved {out}")
                 elif item[0] == "fill_thresholds":
                     _, emg_threshold, delta_theta_threshold = item
                     if np.isfinite(emg_threshold):
-                        self.emg_threshold.set(emg_threshold)
+                        self.emg_threshold.setText(f"{emg_threshold:.6g}")
                     if np.isfinite(delta_theta_threshold):
-                        self.delta_theta_threshold.set(delta_theta_threshold)
+                        self.delta_theta_threshold.setText(f"{delta_theta_threshold:.6g}")
         except queue.Empty:
             pass
-        self.after(200, self._poll_queue)
 
     def _render_result(self, result: ScoringResult) -> None:
         t = result.timestamps_sec / 60.0
@@ -320,13 +374,13 @@ class SleepScoreApp(tk.Tk):
         if result.emg_threshold_history.size:
             self.axes[0].plot(tp, result.emg_threshold_history[plot_idx], color="#a23b3b", lw=0.9, ls="--")
             display_threshold = result.emg_threshold_history[-1]
-            self.emg_threshold_label.set(f"threshold: {display_threshold:.3g}")
+            self.emg_threshold_label.setText(f"threshold: {display_threshold:.3g}")
         self.axes[0].set_ylabel("EMG")
         self.axes[1].plot(tp, result.log_delta_theta_ratio[plot_idx], color="#855c1b", lw=1)
         if result.delta_theta_threshold_history.size:
             self.axes[1].plot(tp, result.delta_theta_threshold_history[plot_idx], color="#a23b3b", lw=0.9, ls="--")
             dt_threshold = result.delta_theta_threshold_history[-1]
-            self.delta_theta_threshold_label.set(f"log10 D/T threshold: {dt_threshold:.3g}")
+            self.delta_theta_threshold_label.setText(f"log10 D/T threshold: {dt_threshold:.3g}")
         self.axes[1].set_ylabel("log10 D/T")
         state_y = np.array([STATE_CODES[s] for s in result.confirmed_state])
         self.axes[2].step(tp, state_y[plot_idx], where="post", color="#111111", lw=1.5)
@@ -335,7 +389,7 @@ class SleepScoreApp(tk.Tk):
         self._render_duration_panels(result, t)
         self.canvas.figure.tight_layout()
         self.canvas.draw_idle()
-        self.confirmed_state.set(result.confirmed_state[-1])
+        self.confirmed_state.setText(result.confirmed_state[-1])
 
     def _render_duration_panels(self, result: ScoringResult, t: np.ndarray) -> None:
         colors = {"Wake": "#4c72b0", "NREM": "#2f6f73", "REM": "#c44e52"}
@@ -360,23 +414,23 @@ class SleepScoreApp(tk.Tk):
 
     def _save_current(self) -> None:
         if self.result is None:
-            messagebox.showinfo("No result", "Run scoring first.")
+            QMessageBox.information(self, "No result", "Run scoring first.")
             return
-        out = save_states_mat(self.result, self.basepath.get().strip())
-        self.status.set(f"Saved {out}")
+        out = save_states_mat(self.result, self.basepath_edit.text().strip())
+        self.status.setText(f"Saved {out}")
 
     def _fill_thresholds_from_profile(self, profile_path: str) -> None:
         try:
             profile = load_profile(profile_path)
         except Exception as exc:
-            self.status.set(f"Could not read profile thresholds: {exc}")
+            self.status.setText(f"Could not read profile thresholds: {exc}")
             return
         emg_threshold, delta_theta_threshold = self._profile_suggested_thresholds(profile)
         if np.isfinite(emg_threshold):
-            self.emg_threshold.set(emg_threshold)
+            self.emg_threshold.setText(f"{emg_threshold:.6g}")
         if np.isfinite(delta_theta_threshold):
-            self.delta_theta_threshold.set(delta_theta_threshold)
-        self.status.set("Loaded suggested thresholds from profile.")
+            self.delta_theta_threshold.setText(f"{delta_theta_threshold:.6g}")
+        self.status.setText("Loaded suggested thresholds from profile.")
 
     def _queue_profile_threshold_fill(self, profile) -> None:
         emg_threshold, delta_theta_threshold = self._profile_suggested_thresholds(profile)
@@ -409,5 +463,7 @@ class SleepScoreApp(tk.Tk):
 
 
 def main() -> None:
-    app = SleepScoreApp()
-    app.mainloop()
+    app = QApplication.instance() or QApplication(sys.argv)
+    window = SleepScoreApp()
+    window.show()
+    app.exec()

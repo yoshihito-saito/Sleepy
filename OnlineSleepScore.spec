@@ -8,25 +8,13 @@ from PyInstaller.utils.hooks import collect_data_files
 
 datas = []
 datas += collect_data_files("matplotlib")
-conda_root = Path(sys.prefix)
-tcl_dir = conda_root / "Library" / "lib" / "tcl8.6"
-tk_dir = conda_root / "Library" / "lib" / "tk8.6"
-if tcl_dir.exists():
-    datas.append((str(tcl_dir), "tcl/tcl8.6"))
-if tk_dir.exists():
-    datas.append((str(tk_dir), "tcl/tk8.6"))
-
-binaries = []
-tkinter_pyd = conda_root / "DLLs" / "_tkinter.pyd"
-tcl_dll = conda_root / "Library" / "bin" / "tcl86t.dll"
-tk_dll = conda_root / "Library" / "bin" / "tk86t.dll"
-for binary in (tkinter_pyd, tcl_dll, tk_dll):
-    if binary.exists():
-        binaries.append((str(binary), "."))
 
 hiddenimports = [
-    "matplotlib.backends.backend_tkagg",
-    "_tkinter",
+    "PySide6",
+    "PySide6.QtCore",
+    "PySide6.QtGui",
+    "PySide6.QtWidgets",
+    "matplotlib.backends.backend_qtagg",
     "scipy.signal",
     "scipy.io.matlab",
     "scipy.special",
@@ -47,12 +35,12 @@ excludes = [
 a = Analysis(
     ["run_sleep_score_gui.py"],
     pathex=["."],
-    binaries=binaries,
+    binaries=[],
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=["tools/pyinstaller_tk_runtime.py"],
+    runtime_hooks=[],
     excludes=excludes,
     noarchive=False,
     optimize=0,
