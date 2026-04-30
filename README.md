@@ -1,6 +1,6 @@
 # online_sleep_score
 
-Python GUI for online/replay sleep-state scoring from Intan-style recordings.
+Python GUI for online sleep-state scoring from Intan-style recordings.
 
 ## Input
 
