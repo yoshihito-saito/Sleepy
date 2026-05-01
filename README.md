@@ -8,9 +8,23 @@ Python GUI for online sleep-state scoring from Intan-style recordings.
 
 1. Open the latest release:
    https://github.com/yoshihito-saito/online_sleep_score/releases
-2. Download `sleepy-Windows.zip`.
-3. Unzip it.
-4. Open the `sleepy` folder and double-click:
+2. Download `sleepy-Setup.exe`.
+3. Run the installer.
+4. Open the desktop shortcut:
+
+```text
+sleepy
+```
+
+The installer places the app in `%LOCALAPPDATA%\Programs\sleepy` and creates a desktop shortcut automatically.
+
+## Portable zip
+
+If you prefer not to install the app:
+
+1. Download `sleepy-Windows.zip`.
+2. Unzip it.
+3. Open the `sleepy` folder and double-click:
 
 ```text
 sleepy.exe

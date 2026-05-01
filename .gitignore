@@ -10,6 +10,8 @@ __pycache__/
 build/
 dist/
 OnlineSleepScore-Windows.zip
+sleepy-Windows.zip
+sleepy-Setup.exe
 *.spec.bak
 
 # Local data and generated outputs
