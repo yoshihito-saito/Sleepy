@@ -10,11 +10,11 @@ if ($InstallPyInstaller) {
     python -m pip install pyinstaller
 }
 
-python -m PyInstaller --clean --noconfirm OnlineSleepScore.spec
+python -m PyInstaller --clean --noconfirm sleepy.spec
 
 Write-Host ""
 Write-Host "Built app:"
-Write-Host "  $RepoRoot\dist\OnlineSleepScore\OnlineSleepScore.exe"
+Write-Host "  $RepoRoot\dist\sleepy\sleepy.exe"
 Write-Host ""
 Write-Host "To distribute, copy the whole folder:"
-Write-Host "  $RepoRoot\dist\OnlineSleepScore"
+Write-Host "  $RepoRoot\dist\sleepy"

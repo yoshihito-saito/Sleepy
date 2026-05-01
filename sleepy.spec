@@ -34,7 +34,7 @@ excludes = [
 
 
 a = Analysis(
-    ["run_sleep_score_gui.py"],
+    ["run_sleepy.py"],
     pathex=["."],
     binaries=[],
     datas=datas,
@@ -53,7 +53,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="OnlineSleepScore",
+    name="sleepy",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -73,5 +73,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name="OnlineSleepScore",
+    name="sleepy",
 )

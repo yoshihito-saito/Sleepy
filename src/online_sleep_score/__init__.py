@@ -1,4 +1,4 @@
-"""Online sleep scoring from Intan amplifier.dat recordings."""
+"""Compatibility wrapper for the renamed sleepy package."""
 
-__version__ = "0.1.0"
+from sleepy import *  # noqa: F401,F403
 

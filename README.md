@@ -1,22 +1,22 @@
-# online_sleep_score
+# sleepy
 
 Python GUI for online sleep-state scoring from Intan-style recordings.
 
-![Online Sleep Score screenshot](docs/screenshot.png)
+![sleepy screenshot](docs/screenshot.png)
 
 ## Install on Windows
 
 1. Open the latest release:
    https://github.com/yoshihito-saito/online_sleep_score/releases
-2. Download `OnlineSleepScore-Windows.zip`.
+2. Download `sleepy-Windows.zip`.
 3. Unzip it.
-4. Open the `OnlineSleepScore` folder and double-click:
+4. Open the `sleepy` folder and double-click:
 
 ```text
-OnlineSleepScore.exe
+sleepy.exe
 ```
 
-Keep the full `OnlineSleepScore` folder together. Do not move only the `.exe` file, because the app needs the `_internal` folder next to it.
+Keep the full `sleepy` folder together. Do not move only the `.exe` file, because the app needs the `_internal` folder next to it.
 
 ## Input
 
