@@ -32,6 +32,7 @@ test/
 *.offlineSleepEMG.mat
 *.offlineSleepEMG.compare.mat
 *.online_sleep_channel_profile.json
+*channel_profile*.json
 
 # OS / editor
 .DS_Store

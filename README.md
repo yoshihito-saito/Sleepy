@@ -34,10 +34,14 @@ Keep the full `sleepy` folder together. Do not move only the `.exe` file, becaus
 
 ## Input
 
-Select a recording folder containing:
+Select a recording folder containing Intan/NeuroSuite-style files:
 
 - `amplifier.dat`
 - `amplifier.xml`
+
+Open Ephys binary folders are also supported. If the selected folder contains
+`continuous.dat`, sleepy looks for adjacent or ancestor XML metadata and excludes
+extra ADC/analog channels beyond the XML `nChannels` value.
 
 ## Workflow
 

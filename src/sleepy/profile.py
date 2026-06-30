@@ -111,6 +111,7 @@ def estimate_channel_profile(
 
     quality = {
         "candidate_channels": candidates,
+        **_session_channel_quality(session),
         "emg_epoch_median": emg_center,
         "emg_epoch_mad": emg_mad,
         "emg_z_center": emg_center,
@@ -235,6 +236,7 @@ def estimate_channel_profile_from_blocks(
     quality = {
         "profile_mode": "sampled_full_recording",
         "candidate_channels": candidates,
+        **_session_channel_quality(session),
         "sampled_block_starts_sec": [float(x / session.sample_rate) for x in starts],
         "sampled_block_sec": float(block_sec),
         "target_fs": float(target_fs),
@@ -283,6 +285,7 @@ def make_manual_channel_profile(session: IntanSession) -> ChannelProfile:
     quality = {
         "profile_mode": "manual_no_calibration",
         "candidate_channels": usable,
+        **_session_channel_quality(session),
         "suggested_emg_raw_threshold": float("nan"),
         "suggested_log_delta_theta_threshold": float("nan"),
         "emg_z_center": float("nan"),
@@ -311,6 +314,16 @@ def _deterministic_emg_channels(usable_by_group: list[list[int]], usable: list[i
     if len(selected) < 2 and len(usable) >= 2:
         selected = _evenly_spaced(usable, max_count=2)
     return sorted(set(map(int, selected)))
+
+
+def _session_channel_quality(session: IntanSession) -> dict:
+    return {
+        "recording_format": getattr(session, "recording_format", "intan"),
+        "xml_n_channels": int(session.n_channels),
+        "file_n_channels": int(getattr(session, "file_n_channels", session.n_channels)),
+        "excluded_file_channels": list(getattr(session, "excluded_file_channels", [])),
+        "bad_channels": session.bad_channels,
+    }
 
 
 def _evenly_spaced(values: list[int], max_count: int) -> list[int]:
