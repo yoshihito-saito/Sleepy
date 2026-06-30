@@ -1,3 +1,3 @@
-"""Sleepy: online sleep scoring from Intan amplifier.dat recordings."""
+"""Sleepy: online sleep scoring from Intan and Open Ephys recordings."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

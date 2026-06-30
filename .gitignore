@@ -37,5 +37,6 @@ test/
 # OS / editor
 .DS_Store
 Thumbs.db
+.obsidian/
 .vscode/
 .idea/
